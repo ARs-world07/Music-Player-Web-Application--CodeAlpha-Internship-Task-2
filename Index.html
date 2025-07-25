@@ -1,0 +1,821 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
+import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs } from 'firebase/firestore';
+
+// Lucide React icons (replace with inline SVGs if preferred or if not available)
+const PlayIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-play"><polygon points="5 3 19 12 5 21 5 3"/></svg>;
+const PauseIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pause"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>;
+const SkipForwardIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-skip-forward"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19"/></svg>;
+const SkipBackIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-skip-back"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" x2="5" y1="19" y2="5"/></svg>;
+const VolumeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-volume-2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M23.31 1.69a16 16 0 0 1 0 22.62"/></svg>;
+const VolumeXIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-volume-x"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/></svg>;
+const SunIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M17.66 17.66l1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M4.93 19.07l1.41-1.41"/><path d="M17.66 6.34l1.41-1.41"/></svg>;
+const MoonIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-moon"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>;
+const PlusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-plus"><path d="M12 5v14"/><path d="M5 12h14"/></svg>;
+const TrashIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>;
+const XIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>;
+const SearchIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-search"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>;
+
+// Firebase configuration and initialization
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+
+let app;
+let db;
+let auth;
+
+// Initialize Firebase only once
+if (Object.keys(firebaseConfig).length > 0) {
+    app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    auth = getAuth(app);
+} else {
+    console.error("Firebase configuration not provided. Music player will not persist data.");
+}
+
+// Utility function to format time
+const formatTime = (seconds) => {
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+};
+
+// Main App Component
+function App() {
+    const audioRef = useRef(null);
+    const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [volume, setVolume] = useState(0.7);
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
+    const [tracks, setTracks] = useState([]); // All available tracks
+    const [playlists, setPlaylists] = useState([]);
+    const [selectedPlaylistId, setSelectedPlaylistId] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+    const [userId, setUserId] = useState(null);
+    const [isAuthReady, setIsAuthReady] = useState(false);
+    const [showPlaylistModal, setShowPlaylistModal] = useState(false);
+    const [modalPlaylistName, setModalPlaylistName] = useState('');
+    const [modalTrackToAdd, setModalTrackToAdd] = useState(null); // Track to add to playlist
+    const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
+    const [trackToDelete, setTrackToDelete] = useState(null);
+    const [playlistToDelete, setPlaylistToDelete] = useState(null);
+
+    // Effect for Firebase Authentication
+    useEffect(() => {
+        if (!auth) {
+            setIsAuthReady(true); // If no auth config, consider auth ready
+            return;
+        }
+
+        const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                setUserId(user.uid);
+            } else {
+                try {
+                    // Try to sign in with custom token if available
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        // Otherwise, sign in anonymously
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Error during Firebase authentication:", error);
+                    // Fallback if anonymous sign-in also fails
+                    setUserId(crypto.randomUUID()); // Use a random ID if auth fails
+                }
+            }
+            setIsAuthReady(true);
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    // Effect for loading playlists from Firestore
+    useEffect(() => {
+        if (!isAuthReady || !db || !userId) return;
+
+        const playlistsCollectionRef = collection(db, `artifacts/${appId}/users/${userId}/playlists`);
+        const unsubscribe = onSnapshot(playlistsCollectionRef, (snapshot) => {
+            const fetchedPlaylists = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setPlaylists(fetchedPlaylists);
+            // If no playlist is selected, select the first one if available
+            if (!selectedPlaylistId && fetchedPlaylists.length > 0) {
+                setSelectedPlaylistId(fetchedPlaylists[0].id);
+            }
+        }, (error) => {
+            console.error("Error fetching playlists:", error);
+        });
+
+        return () => unsubscribe();
+    }, [isAuthReady, db, userId, selectedPlaylistId]);
+
+    // Effect for loading tracks from the selected playlist
+    useEffect(() => {
+        if (!isAuthReady || !db || !userId || !selectedPlaylistId) {
+            setTracks([]); // Clear tracks if no playlist is selected or auth not ready
+            return;
+        }
+
+        const playlistDocRef = doc(db, `artifacts/${appId}/users/${userId}/playlists`, selectedPlaylistId);
+        const unsubscribe = onSnapshot(playlistDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const playlistData = docSnap.data();
+                // Ensure tracks are always an array, even if empty or missing
+                const fetchedTracks = playlistData.tracks || [];
+                setTracks(fetchedTracks);
+                // Reset current track index if the current track is no longer in the playlist
+                if (currentTrackIndex >= fetchedTracks.length) {
+                    setCurrentTrackIndex(0);
+                    setIsPlaying(false); // Pause playback if track is gone
+                }
+            } else {
+                console.log("Selected playlist does not exist or was deleted.");
+                setTracks([]);
+                setSelectedPlaylistId(null); // Deselect the playlist
+            }
+        }, (error) => {
+            console.error("Error fetching selected playlist tracks:", error);
+        });
+
+        return () => unsubscribe();
+    }, [isAuthReady, db, userId, selectedPlaylistId, currentTrackIndex]);
+
+
+    // Theme toggle effect
+    useEffect(() => {
+        if (theme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        localStorage.setItem('theme', theme);
+    }, [theme]);
+
+    const toggleTheme = () => {
+        setTheme(prevTheme => (prevTheme === 'dark' ? 'light' : 'dark'));
+    };
+
+    // Audio event handlers
+    const handleLoadedMetadata = useCallback(() => {
+        if (audioRef.current) {
+            setDuration(audioRef.current.duration);
+        }
+    }, []);
+
+    const handleTimeUpdate = useCallback(() => {
+        if (audioRef.current) {
+            setCurrentTime(audioRef.current.currentTime);
+        }
+    }, []);
+
+    const handleEnded = useCallback(() => {
+        skipNext();
+    }, [tracks, currentTrackIndex]); // Depend on tracks and currentTrackIndex for skipNext
+
+    // Attach/detach audio event listeners
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (audio) {
+            audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+            audio.addEventListener('timeupdate', handleTimeUpdate);
+            audio.addEventListener('ended', handleEnded);
+
+            return () => {
+                audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+                audio.removeEventListener('timeupdate', handleTimeUpdate);
+                audio.removeEventListener('ended', handleEnded);
+            };
+        }
+    }, [handleLoadedMetadata, handleTimeUpdate, handleEnded]);
+
+    // Play/Pause control
+    const playPause = useCallback(() => {
+        const audio = audioRef.current;
+        if (audio) {
+            if (isPlaying) {
+                audio.pause();
+            } else {
+                // Ensure there's a track to play
+                if (tracks.length > 0) {
+                    audio.play().catch(e => console.error("Error playing audio:", e));
+                }
+            }
+            setIsPlaying(!isPlaying);
+        }
+    }, [isPlaying, tracks]);
+
+    // Skip to next track
+    const skipNext = useCallback(() => {
+        if (tracks.length > 0) {
+            const nextIndex = (currentTrackIndex + 1) % tracks.length;
+            setCurrentTrackIndex(nextIndex);
+            setIsPlaying(true); // Auto-play next track
+        } else {
+            setIsPlaying(false); // No tracks, stop playing
+        }
+    }, [currentTrackIndex, tracks]);
+
+    // Skip to previous track
+    const skipPrevious = useCallback(() => {
+        if (tracks.length > 0) {
+            const prevIndex = (currentTrackIndex - 1 + tracks.length) % tracks.length;
+            setCurrentTrackIndex(prevIndex);
+            setIsPlaying(true); // Auto-play previous track
+        } else {
+            setIsPlaying(false); // No tracks, stop playing
+        }
+    }, [currentTrackIndex, tracks]);
+
+    // Set volume
+    const handleVolumeChange = useCallback((e) => {
+        const newVolume = parseFloat(e.target.value);
+        setVolume(newVolume);
+        if (audioRef.current) {
+            audioRef.current.volume = newVolume;
+        }
+    }, []);
+
+    // Seek track
+    const handleSeek = useCallback((e) => {
+        const newTime = parseFloat(e.target.value);
+        setCurrentTime(newTime);
+        if (audioRef.current) {
+            audioRef.current.currentTime = newTime;
+        }
+    }, []);
+
+    // Update audio source when currentTrackIndex changes
+    useEffect(() => {
+        const audio = audioRef.current;
+        if (audio && tracks.length > 0) {
+            const currentTrack = tracks[currentTrackIndex];
+            if (currentTrack && currentTrack.src) {
+                audio.src = currentTrack.src;
+                audio.load(); // Load the new source
+                if (isPlaying) {
+                    audio.play().catch(e => console.error("Error playing audio after source change:", e));
+                }
+            }
+        }
+    }, [currentTrackIndex, tracks]);
+
+    // Function to add a track from file upload
+    const handleFileUpload = async (e) => {
+        const files = Array.from(e.target.files);
+        if (files.length === 0) return;
+
+        // Ensure a playlist is selected or create a default one
+        let targetPlaylistId = selectedPlaylistId;
+        if (!targetPlaylistId && userId) {
+            try {
+                const newPlaylistRef = await addDoc(collection(db, `artifacts/${appId}/users/${userId}/playlists`), {
+                    name: "My First Playlist",
+                    userId: userId,
+                    tracks: []
+                });
+                targetPlaylistId = newPlaylistRef.id;
+                setSelectedPlaylistId(targetPlaylistId);
+            } catch (error) {
+                console.error("Error creating default playlist:", error);
+                return;
+            }
+        }
+
+        if (!targetPlaylistId) {
+            console.error("Cannot upload track: No playlist selected and failed to create a default one.");
+            return;
+        }
+
+        const playlistDocRef = doc(db, `artifacts/${appId}/users/${userId}/playlists`, targetPlaylistId);
+        const playlistSnap = await getDoc(playlistDocRef);
+        const currentTracksInPlaylist = playlistSnap.exists() ? (playlistSnap.data().tracks || []) : [];
+
+        for (const file of files) {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const audio = new Audio(event.target.result);
+                audio.onloadedmetadata = () => {
+                    const newTrack = {
+                        id: crypto.randomUUID(),
+                        name: file.name.split('.').slice(0, -1).join('.'), // Remove extension
+                        artist: "Unknown Artist", // Can be improved with ID3 tags
+                        src: event.target.result, // Data URL
+                        duration: audio.duration,
+                        genre: "Unknown",
+                    };
+
+                    // Add to the current tracks state (for immediate UI update)
+                    setTracks(prevTracks => [...prevTracks, newTrack]);
+
+                    // Add to Firestore
+                    updateDoc(playlistDocRef, {
+                        tracks: [...currentTracksInPlaylist, newTrack]
+                    }).catch(error => console.error("Error adding track to Firestore:", error));
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    // Function to create a new playlist
+    const createNewPlaylist = async (name) => {
+        if (!userId || !db) {
+            console.error("User not authenticated or Firestore not available.");
+            return;
+        }
+        if (!name.trim()) {
+            console.error("Playlist name cannot be empty.");
+            return;
+        }
+        try {
+            const newPlaylistRef = await addDoc(collection(db, `artifacts/${appId}/users/${userId}/playlists`), {
+                name: name,
+                userId: userId,
+                tracks: []
+            });
+            setSelectedPlaylistId(newPlaylistRef.id);
+            setShowPlaylistModal(false);
+            setModalPlaylistName('');
+        } catch (error) {
+            console.error("Error creating new playlist:", error);
+        }
+    };
+
+    // Function to add a track to a specific playlist (from track list)
+    const addTrackToPlaylist = async (playlistId, track) => {
+        if (!userId || !db) return;
+        try {
+            const playlistDocRef = doc(db, `artifacts/${appId}/users/${userId}/playlists`, playlistId);
+            const playlistSnap = await getDoc(playlistDocRef);
+            if (playlistSnap.exists()) {
+                const currentTracks = playlistSnap.data().tracks || [];
+                // Check if track already exists in playlist to prevent duplicates
+                if (!currentTracks.some(t => t.id === track.id)) {
+                    await updateDoc(playlistDocRef, {
+                        tracks: [...currentTracks, track]
+                    });
+                    console.log(`Track "${track.name}" added to playlist "${playlistSnap.data().name}"`);
+                } else {
+                    console.log(`Track "${track.name}" is already in playlist "${playlistSnap.data().name}"`);
+                }
+            }
+        } catch (error) {
+            console.error("Error adding track to playlist:", error);
+        }
+    };
+
+    // Function to remove a track from the currently selected playlist
+    const removeTrackFromPlaylist = async (trackId) => {
+        if (!userId || !db || !selectedPlaylistId) return;
+        try {
+            const playlistDocRef = doc(db, `artifacts/${appId}/users/${userId}/playlists`, selectedPlaylistId);
+            const playlistSnap = await getDoc(playlistDocRef);
+            if (playlistSnap.exists()) {
+                const currentTracks = playlistSnap.data().tracks || [];
+                const updatedTracks = currentTracks.filter(track => track.id !== trackId);
+                await updateDoc(playlistDocRef, {
+                    tracks: updatedTracks
+                });
+                console.log(`Track removed from playlist.`);
+                // If the removed track was the currently playing one, reset playback
+                if (tracks[currentTrackIndex]?.id === trackId) {
+                    setIsPlaying(false);
+                    setCurrentTrackIndex(0); // Reset to first track or 0
+                }
+            }
+        } catch (error) {
+            console.error("Error removing track from playlist:", error);
+        }
+    };
+
+    // Function to delete a playlist
+    const deletePlaylist = async (playlistId) => {
+        if (!userId || !db) return;
+        try {
+            await deleteDoc(doc(db, `artifacts/${appId}/users/${userId}/playlists`, playlistId));
+            console.log("Playlist deleted successfully.");
+            if (selectedPlaylistId === playlistId) {
+                setSelectedPlaylistId(null); // Deselect if the current playlist is deleted
+                setTracks([]); // Clear tracks
+                setIsPlaying(false); // Stop playback
+            }
+        } catch (error) {
+            console.error("Error deleting playlist:", error);
+        }
+    };
+
+    // Filtered tracks for display based on search term
+    const filteredTracks = tracks.filter(track =>
+        track.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        track.artist.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const currentTrack = tracks[currentTrackIndex];
+
+    // Modal for creating new playlist
+    const CreatePlaylistModal = ({ onClose, onCreate }) => {
+        return (
+            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-sm">
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Create New Playlist</h3>
+                    <input
+                        type="text"
+                        placeholder="Playlist Name"
+                        value={modalPlaylistName}
+                        onChange={(e) => setModalPlaylistName(e.target.value)}
+                        className="w-full p-3 mb-4 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
+                    />
+                    <div className="flex justify-end space-x-3">
+                        <button
+                            onClick={onClose}
+                            className="px-5 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={() => onCreate(modalPlaylistName)}
+                            className="px-5 py-2 rounded-md bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors duration-200"
+                        >
+                            Create
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // Modal for adding track to playlist
+    const AddTrackToPlaylistModal = ({ onClose, onAdd, track }) => {
+        return (
+            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-md">
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Add "{track.name}" to Playlist</h3>
+                    <ul className="max-h-60 overflow-y-auto mb-4 border border-gray-200 dark:border-gray-700 rounded-md">
+                        {playlists.length === 0 ? (
+                            <li className="p-3 text-gray-600 dark:text-gray-400">No playlists available. Create one first!</li>
+                        ) : (
+                            playlists.map(playlist => (
+                                <li
+                                    key={playlist.id}
+                                    className="p-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md flex justify-between items-center"
+                                    onClick={() => { onAdd(playlist.id, track); onClose(); }}
+                                >
+                                    <span className="text-gray-800 dark:text-gray-200">{playlist.name}</span>
+                                    {/* Optional: Indicate if track is already in this playlist */}
+                                </li>
+                            ))
+                        )}
+                    </ul>
+                    <div className="flex justify-end space-x-3">
+                        <button
+                            onClick={onClose}
+                            className="px-5 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                        >
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    // Confirmation Modal for Deletion
+    const ConfirmDeleteModal = ({ onClose, onConfirm, itemType, itemName }) => {
+        return (
+            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl w-full max-w-sm">
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Confirm Deletion</h3>
+                    <p className="text-gray-700 dark:text-gray-300 mb-6">
+                        Are you sure you want to delete the {itemType} "<span className="font-bold">{itemName}</span>"? This action cannot be undone.
+                    </p>
+                    <div className="flex justify-end space-x-3">
+                        <button
+                            onClick={onClose}
+                            className="px-5 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={onConfirm}
+                            className="px-5 py-2 rounded-md bg-red-600 text-white font-medium hover:bg-red-700 transition-colors duration-200"
+                        >
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+
+    return (
+        <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white font-inter flex flex-col items-center p-4 sm:p-6">
+            <style>
+                {`
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+                body { font-family: 'Inter', sans-serif; }
+                /* Custom scrollbar for better aesthetics */
+                ::-webkit-scrollbar {
+                    width: 8px;
+                }
+                ::-webkit-scrollbar-track {
+                    background: #f1f1f1;
+                    border-radius: 10px;
+                }
+                .dark ::-webkit-scrollbar-track {
+                    background: #333;
+                }
+                ::-webkit-scrollbar-thumb {
+                    background: #888;
+                    border-radius: 10px;
+                }
+                .dark ::-webkit-scrollbar-thumb {
+                    background: #555;
+                }
+                ::-webkit-scrollbar-thumb:hover {
+                    background: #555;
+                }
+                .dark ::-webkit-scrollbar-thumb:hover {
+                    background: #777;
+                }
+                `}
+            </style>
+
+            <audio ref={audioRef} preload="auto"></audio>
+
+            <h1 className="text-4xl font-bold mb-8 text-center text-blue-600 dark:text-blue-400">
+                🎧 Music Player
+            </h1>
+
+            {/* User ID Display */}
+            {userId && (
+                <div className="mb-4 text-sm text-gray-600 dark:text-gray-400 text-center p-2 bg-gray-200 dark:bg-gray-800 rounded-md">
+                    Your User ID: <span className="font-mono break-all">{userId}</span>
+                </div>
+            )}
+
+            {/* Theme Toggle */}
+            <button
+                onClick={toggleTheme}
+                className="absolute top-4 right-4 p-2 rounded-full bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors duration-200 shadow-md"
+                aria-label="Toggle theme"
+            >
+                {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+            </button>
+
+            <div className="w-full max-w-4xl bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 flex flex-col lg:flex-row gap-6">
+                {/* Left Section: Playlists and Upload */}
+                <div className="flex-1 lg:w-1/3">
+                    <div className="mb-6">
+                        <h2 className="text-2xl font-semibold mb-4 text-blue-600 dark:text-blue-400">Playlists</h2>
+                        <div className="flex flex-col gap-2 mb-4 max-h-48 overflow-y-auto pr-2">
+                            {playlists.length === 0 ? (
+                                <p className="text-gray-600 dark:text-gray-400">No playlists yet. Create one!</p>
+                            ) : (
+                                playlists.map(playlist => (
+                                    <div
+                                        key={playlist.id}
+                                        className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors duration-200
+                                            ${selectedPlaylistId === playlist.id
+                                                ? 'bg-blue-100 dark:bg-blue-700 text-blue-800 dark:text-white shadow-inner'
+                                                : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
+                                            }`}
+                                        onClick={() => setSelectedPlaylistId(playlist.id)}
+                                    >
+                                        <span className="font-medium truncate">{playlist.name}</span>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation(); // Prevent selecting playlist when deleting
+                                                setPlaylistToDelete(playlist);
+                                                setShowConfirmDeleteModal(true);
+                                            }}
+                                            className="p-1 rounded-full text-gray-500 dark:text-gray-300 hover:bg-red-200 dark:hover:bg-red-800 hover:text-red-700 dark:hover:text-red-300 transition-colors duration-200"
+                                            aria-label={`Delete playlist ${playlist.name}`}
+                                        >
+                                            <TrashIcon className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                        <button
+                            onClick={() => setShowPlaylistModal(true)}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-md font-medium hover:bg-blue-600 transition-colors duration-200 shadow-md transform hover:scale-105"
+                        >
+                            <PlusIcon className="w-5 h-5" /> New Playlist
+                        </button>
+                    </div>
+
+                    <div>
+                        <h2 className="text-2xl font-semibold mb-4 text-blue-600 dark:text-blue-400">Upload Music</h2>
+                        <label htmlFor="music-upload" className="w-full flex flex-col items-center justify-center px-4 py-6 bg-blue-50 dark:bg-gray-700 border-2 border-dashed border-blue-300 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-blue-100 dark:hover:bg-gray-600 transition-colors duration-200 shadow-sm">
+                            <svg className="w-10 h-10 mb-3 text-blue-500 dark:text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 0115.9 6L16 6a3 3 0 013 3v10a2 2 0 01-2 2H7a2 2 0 01-2-2v-1a1 1 0 011-1h1a1 1 0 011 1v1h4V7m-4 5l-4 4m0 0l4 4m-4-4h14"></path></svg>
+                            <p className="mb-2 text-sm text-gray-600 dark:text-gray-400"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">MP3, WAV (MAX. 10MB per file)</p>
+                            <input
+                                id="music-upload"
+                                type="file"
+                                accept=".mp3,.wav"
+                                multiple
+                                onChange={handleFileUpload}
+                                className="hidden"
+                            />
+                        </label>
+                        {!selectedPlaylistId && (
+                            <p className="mt-2 text-sm text-red-500 dark:text-red-400">
+                                Please select or create a playlist before uploading music.
+                            </p>
+                        )}
+                    </div>
+                </div>
+
+                {/* Right Section: Track List and Player Controls */}
+                <div className="flex-1 lg:w-2/3">
+                    <h2 className="text-2xl font-semibold mb-4 text-blue-600 dark:text-blue-400">
+                        {selectedPlaylistId ? (
+                            playlists.find(p => p.id === selectedPlaylistId)?.name || 'Selected Playlist'
+                        ) : (
+                            'All Tracks'
+                        )}
+                    </h2>
+                    <div className="relative mb-4">
+                        <input
+                            type="text"
+                            placeholder="Search by name or artist..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full p-3 pl-10 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500 shadow-sm"
+                        />
+                        <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
+                    </div>
+
+                    <div className="max-h-72 overflow-y-auto pr-2 mb-6 border border-gray-200 dark:border-gray-700 rounded-lg shadow-inner">
+                        {filteredTracks.length === 0 ? (
+                            <p className="p-4 text-gray-600 dark:text-gray-400 text-center">
+                                {selectedPlaylistId ? "No tracks in this playlist or no matching results." : "Upload some music to get started!"}
+                            </p>
+                        ) : (
+                            filteredTracks.map((track, index) => (
+                                <div
+                                    key={track.id}
+                                    className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors duration-200
+                                        ${currentTrack && currentTrack.id === track.id
+                                            ? 'bg-blue-200 dark:bg-blue-800 text-blue-900 dark:text-blue-100 font-semibold shadow-md'
+                                            : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                                        }`}
+                                    onClick={() => {
+                                        setCurrentTrackIndex(tracks.indexOf(track)); // Find actual index in original tracks array
+                                        setIsPlaying(true);
+                                    }}
+                                >
+                                    <div className="flex-1 truncate">
+                                        <div className="text-lg">{track.name}</div>
+                                        <div className="text-sm text-gray-600 dark:text-gray-400">{track.artist}</div>
+                                    </div>
+                                    <div className="flex items-center gap-2 ml-4">
+                                        <span className="text-sm text-gray-500 dark:text-gray-400">{formatTime(track.duration || 0)}</span>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation(); // Prevent playing track when clicking add
+                                                setModalTrackToAdd(track);
+                                                setShowPlaylistModal(true); // Reuse playlist modal for adding
+                                            }}
+                                            className="p-1 rounded-full text-gray-500 dark:text-gray-300 hover:bg-green-200 dark:hover:bg-green-800 hover:text-green-700 dark:hover:text-green-300 transition-colors duration-200"
+                                            aria-label={`Add ${track.name} to playlist`}
+                                        >
+                                            <PlusIcon className="w-5 h-5" />
+                                        </button>
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation(); // Prevent playing track when clicking delete
+                                                setTrackToDelete(track);
+                                                setShowConfirmDeleteModal(true);
+                                            }}
+                                            className="p-1 rounded-full text-gray-500 dark:text-gray-300 hover:bg-red-200 dark:hover:bg-red-800 hover:text-red-700 dark:hover:text-red-300 transition-colors duration-200"
+                                            aria-label={`Remove ${track.name} from playlist`}
+                                        >
+                                            <TrashIcon className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    {/* Music Player Controls */}
+                    <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-6 shadow-md border border-gray-200 dark:border-gray-700">
+                        <div className="text-center mb-4">
+                            <h3 className="text-xl font-semibold truncate">{currentTrack ? currentTrack.name : 'No track playing'}</h3>
+                            <p className="text-gray-600 dark:text-gray-400">{currentTrack ? currentTrack.artist : 'Select a track'}</p>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="flex items-center gap-3 mb-4">
+                            <span className="text-sm text-gray-600 dark:text-gray-400">{formatTime(currentTime)}</span>
+                            <input
+                                type="range"
+                                min="0"
+                                max={duration || 0}
+                                value={currentTime}
+                                onChange={handleSeek}
+                                className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer dark:bg-blue-800
+                                    [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:shadow-md
+                                    [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:bg-blue-600 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:shadow-md"
+                            />
+                            <span className="text-sm text-gray-600 dark:text-gray-400">{formatTime(duration)}</span>
+                        </div>
+
+                        {/* Playback Buttons */}
+                        <div className="flex justify-center items-center gap-6 mb-4">
+                            <button
+                                onClick={skipPrevious}
+                                className="p-3 rounded-full bg-blue-100 dark:bg-blue-700 text-blue-600 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-600 transition-colors duration-200 shadow-md transform hover:scale-110"
+                                aria-label="Previous track"
+                            >
+                                <SkipBackIcon />
+                            </button>
+                            <button
+                                onClick={playPause}
+                                className="p-4 rounded-full bg-blue-500 text-white hover:bg-blue-600 transition-colors duration-200 shadow-lg transform hover:scale-110"
+                                aria-label={isPlaying ? "Pause" : "Play"}
+                            >
+                                {isPlaying ? <PauseIcon className="w-7 h-7" /> : <PlayIcon className="w-7 h-7" />}
+                            </button>
+                            <button
+                                onClick={skipNext}
+                                className="p-3 rounded-full bg-blue-100 dark:bg-blue-700 text-blue-600 dark:text-blue-200 hover:bg-blue-200 dark:hover:bg-blue-600 transition-colors duration-200 shadow-md transform hover:scale-110"
+                                aria-label="Next track"
+                            >
+                                <SkipForwardIcon />
+                            </button>
+                        </div>
+
+                        {/* Volume Control */}
+                        <div className="flex items-center gap-3">
+                            {volume === 0 ? <VolumeXIcon className="text-gray-500 dark:text-gray-400" /> : <VolumeIcon className="text-gray-500 dark:text-gray-400" />}
+                            <input
+                                type="range"
+                                min="0"
+                                max="1"
+                                step="0.01"
+                                value={volume}
+                                onChange={handleVolumeChange}
+                                className="w-full h-2 bg-gray-300 rounded-lg appearance-none cursor-pointer dark:bg-gray-600
+                                    [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-blue-600 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:shadow-md
+                                    [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:bg-blue-600 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:shadow-md"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Modals */}
+            {showPlaylistModal && modalTrackToAdd === null && (
+                <CreatePlaylistModal
+                    onClose={() => setShowPlaylistModal(false)}
+                    onCreate={createNewPlaylist}
+                />
+            )}
+            {showPlaylistModal && modalTrackToAdd !== null && (
+                <AddTrackToPlaylistModal
+                    onClose={() => { setShowPlaylistModal(false); setModalTrackToAdd(null); }}
+                    onAdd={addTrackToPlaylist}
+                    track={modalTrackToAdd}
+                />
+            )}
+            {showConfirmDeleteModal && trackToDelete && (
+                <ConfirmDeleteModal
+                    onClose={() => { setShowConfirmDeleteModal(false); setTrackToDelete(null); }}
+                    onConfirm={() => {
+                        removeTrackFromPlaylist(trackToDelete.id);
+                        setShowConfirmDeleteModal(false);
+                        setTrackToDelete(null);
+                    }}
+                    itemType="track"
+                    itemName={trackToDelete.name}
+                />
+            )}
+            {showConfirmDeleteModal && playlistToDelete && (
+                <ConfirmDeleteModal
+                    onClose={() => { setShowConfirmDeleteModal(false); setPlaylistToDelete(null); }}
+                    onConfirm={() => {
+                        deletePlaylist(playlistToDelete.id);
+                        setShowConfirmDeleteModal(false);
+                        setPlaylistToDelete(null);
+                    }}
+                    itemType="playlist"
+                    itemName={playlistToDelete.name}
+                />
+            )}
+        </div>
+    );
+}
+
+export default App;
