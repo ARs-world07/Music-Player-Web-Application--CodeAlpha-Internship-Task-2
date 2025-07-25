@@ -1,0 +1,244 @@
+
+        /* Custom styles for the music player */
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Light Mode (default) */
+        body.light-mode {
+            background-color: #f0f2f5;
+            color: #333;
+        }
+
+        .light-mode .player-container,
+        .light-mode .playlist-section,
+        .light-mode .modal-content {
+            background-color: #ffffff;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .light-mode .control-button {
+            color: #4a5568;
+        }
+
+        .light-mode .control-button:hover {
+            background-color: #edf2f7;
+        }
+
+        .light-mode .slider-thumb {
+            background-color: #4f46e5;
+        }
+
+        .light-mode .progress-bar-fill {
+            background-color: #4f46e5;
+        }
+
+        .light-mode .volume-bar-fill {
+            background-color: #4f46e5;
+        }
+
+        .light-mode input[type="range"]::-webkit-slider-thumb {
+            background-color: #4f46e5;
+        }
+
+        .light-mode input[type="range"]::-moz-range-thumb {
+            background-color: #4f46e5;
+        }
+
+        .light-mode .playlist-item.active {
+            background-color: #e0e7ff; /* light blue for active track */
+            color: #4f46e5;
+        }
+        .light-mode .playlist-item:hover {
+            background-color: #f3f4f6;
+        }
+        .light-mode .modal-header {
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .light-mode .modal-footer {
+            border-top: 1px solid #e2e8f0;
+        }
+        .light-mode input[type="text"], .light-mode input[type="file"] {
+            border: 1px solid #cbd5e0;
+            background-color: #ffffff;
+            color: #333;
+        }
+        .light-mode input[type="text"]:focus, .light-mode input[type="file"]:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 1px #4f46e5;
+        }
+
+
+        /* Dark Mode */
+        body.dark-mode {
+            background-color: #1a202c;
+            color: #e2e8f0;
+        }
+
+        .dark-mode .player-container,
+        .dark-mode .playlist-section,
+        .dark-mode .modal-content {
+            background-color: #2d3748;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .dark-mode .control-button {
+            color: #a0aec0;
+        }
+
+        .dark-mode .control-button:hover {
+            background-color: #4a5568;
+        }
+
+        .dark-mode .slider-thumb {
+            background-color: #6366f1;
+        }
+
+        .dark-mode .progress-bar-fill {
+            background-color: #6366f1;
+        }
+
+        .dark-mode .volume-bar-fill {
+            background-color: #6366f1;
+        }
+
+        .dark-mode input[type="range"]::-webkit-slider-thumb {
+            background-color: #6366f1;
+        }
+
+        .dark-mode input[type="range"]::-moz-range-thumb {
+            background-color: #6366f1;
+        }
+
+        .dark-mode .playlist-item.active {
+            background-color: #4a5568; /* darker blue for active track */
+            color: #a78bfa;
+        }
+        .dark-mode .playlist-item:hover {
+            background-color: #4a5568;
+        }
+        .dark-mode .modal-header {
+            border-bottom: 1px solid #4a5568;
+        }
+        .dark-mode .modal-footer {
+            border-top: 1px solid #4a5568;
+        }
+        .dark-mode input[type="text"], .dark-mode input[type="file"] {
+            border: 1px solid #4a5568;
+            background-color: #2d3748;
+            color: #e2e8f0;
+        }
+        .dark-mode input[type="text"]:focus, .dark-mode input[type="file"]:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 1px #6366f1;
+        }
+
+
+        /* General Slider Styling */
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            background: #cbd5e0;
+            outline: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.2s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #4f46e5;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: 0.2s ease;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.4);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #4f46e5;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: 0.2s ease;
+            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.4);
+        }
+
+        /* Modal specific styles */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed; /* Stay in place */
+            z-index: 1000; /* Sit on top */
+            left: 0;
+            top: 0;
+            width: 100%; /* Full width */
+            height: 100%; /* Full height */
+            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            margin: auto;
+            padding: 20px;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close-button:hover,
+        .close-button:focus {
+            color: #000;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .music-player-layout {
+                flex-direction: column;
+                padding: 0;
+            }
+            .player-container, .playlist-section {
+                width: 100%;
+                margin: 10px 0;
+                padding: 15px;
+            }
+            .player-container {
+                order: 1; /* Player on top for mobile */
+            }
+            .playlist-section {
+                order: 2; /* Playlist below player */
+            }
+            .controls-row {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            .control-button {
+                padding: 8px 12px;
+                font-size: 1.2rem;
+            }
+            .volume-control {
+                width: 100%;
+                margin-top: 10px;
+            }
+        }
