@@ -1,4 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Music Player</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="light-mode">
+    <div class="music-player-layout flex flex-col lg:flex-row gap-6 p-4 md:p-8 w-full max-w-7xl mx-auto">
 
+        <!-- Music Player Section -->
+        <div class="player-container flex-1 bg-white rounded-xl p-6 md:p-8 shadow-lg flex flex-col items-center justify-between min-h-[400px] lg:min-h-[600px]">
+            <h1 class="text-3xl font-bold mb-6 text-indigo-700 dark:text-indigo-400">Music Player</h1>
+
+            <!-- Album Art / Placeholder -->
+            <div class="w-48 h-48 md:w-64 md:h-64 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center overflow-hidden mb-6 shadow-md">
+                <i class="fas fa-music text-6xl text-gray-500 dark:text-gray-400"></i>
+                <!-- <img id="album-art" src="https://placehold.co/256x256/a78bfa/ffffff?text=No+Album+Art" alt="Album Art" class="w-full h-full object-cover"> -->
+            </div>
 
             <!-- Track Info -->
             <div class="text-center mb-6 w-full">
