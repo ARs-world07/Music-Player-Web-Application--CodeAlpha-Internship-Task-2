@@ -1,7 +1,6 @@
 # 🎵 Music Player
 
-
-
+//==========//
 A clean, responsive web music‑player that lets you upload songs, build playlists, and enjoy them in either light or dark mode—all without any backend setup. Everything runs right in your browser. :contentReference[oaicite:7]{index=7}
 
 ## ✨ Features
